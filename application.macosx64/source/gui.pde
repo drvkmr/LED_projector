@@ -30,7 +30,7 @@ void createGUI() {
     cp5.getController("rows").getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setPaddingX(0);
   
   cp5.addSlider("columns")
-  .setCaptionLabel("rows (0-10)")
+  .setCaptionLabel("columns (0-10)")
     .setPosition(10, 110)
     .setSize(150, 10)
     .moveTo(g1)
@@ -150,7 +150,7 @@ void createGUI() {
       
   accordion = cp5.addAccordion("acc")
     .setPosition(20, 60)
-    .setWidth(170)
+    .setWidth(uiWidth)
     .addItem(g1)
     .addItem(g2)
     .addItem(g3)
@@ -163,7 +163,7 @@ void createGUI() {
 }
 
 void portsList(int val) {
-  arduino = new Serial(this, ports[val], 9600);
+  arduino = new Serial(this, ports[val], baudr);
 }
 
 void ledType(byte val) {
@@ -226,8 +226,20 @@ void videoSelected(File selection) {
   if (selection != null) {
     img = loadImage(selection.getAbsolutePath());
     movie = new Movie(this, selection.getAbsolutePath());
-    println("IN");
     playVideo = true;
     movie.loop();
   }
+}
+
+
+//DRAG PATTERN WITH MOUSE WHEN MOUSE IS DRAGGED
+//AND THE FIRST CLICK IS NOT OVER UI WINDOW
+void mousePressed() {
+  if(mouseX>uiWidth+10) {
+    drag = true;
+  }
+}
+
+void mouseReleased() {
+  drag = false;
 }
