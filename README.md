@@ -2,7 +2,7 @@
 
 A simple tool to project pixels from an image or a video to a programmable led strip/ring/matrix.
 
-[[https://github.com/drvkmr/LED_projector/blob/master/Screen%20Shot.png|alt=octocat]]
+![Screenshot v1](https://github.com/drvkmr/LED_projector/blob/master/Screen%20Shot.png)
 
 It is optimised for usage with Arduino UNO and Neopixel LEDs. Here are the steps to be followed-
 1. Connect the led strip/matrix/ring to Arduino's pin 3.
