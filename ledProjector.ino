@@ -1,78 +1,111 @@
-//#define ARDUINO_SAMD_ZERO
-#include <FastLED.h>
+// LED Projector v1.1 Arduino code
+// Based on Josh Levine's code "SimpleNeoPixelDemo" at https://github.com/bigjosh/SimpleNeoPixelDemo
+// Updated to send the values immediately on receiving them
 
-// How many leds in your strip?
-#define NUM_LEDS 100
 
-// For led chips like Neopixels, which have a data line, ground, and power, you just
-// need to define DATA_PIN.  For led chipsets that are SPI based (four wires - data, clock,
-// ground, and power), like the LPD8806 define both DATA_PIN and CLOCK_PIN
-#define DATA_PIN 3
-#define CLOCK_PIN 13
+#define PIXEL_PORT  PORTB  // Port of the pin the pixels are connected to
+#define PIXEL_DDR   DDRB   // Port of the pin the pixels are connected to
+#define PIXEL_BIT   4      // Bit of the pin the pixels are connected to
 
-CRGB leds[NUM_LEDS];
-byte receive[NUM_LEDS * 3];
+
+#define T1H  800    // Width of a 1 bit in ns
+#define T1L  450    // Width of a 1 bit in ns
+
+#define T0H  400    // Width of a 0 bit in ns
+#define T0L  850    // Width of a 0 bit in ns
+
+#define RES 50000    // Width of the low gap between bits to cause a frame to latch
+
+// Here are some convience defines for using nanoseconds specs to generate actual CPU delays
+
+#define NS_PER_SEC (1000000000L)          // Note that this has to be SIGNED since we want to be able to check for negative values of derivatives
+
+#define CYCLES_PER_SEC (F_CPU)
+
+#define NS_PER_CYCLE ( NS_PER_SEC / CYCLES_PER_SEC )
+
+#define NS_TO_CYCLES(n) ( (n) / NS_PER_CYCLE )
+
 int k = 0;
 
+inline void sendBit( bool bitVal ) {
+  if (  bitVal ) {        // 0 bit
+    asm volatile (
+      "sbi %[port], %[bit] \n\t"        // Set the output bit
+      ".rept %[onCycles] \n\t"                                // Execute NOPs to delay exactly the specified number of cycles
+      "nop \n\t"
+      ".endr \n\t"
+      "cbi %[port], %[bit] \n\t"                              // Clear the output bit
+      ".rept %[offCycles] \n\t"                               // Execute NOPs to delay exactly the specified number of cycles
+      "nop \n\t"
+      ".endr \n\t"
+      ::
+      [port]    "I" (_SFR_IO_ADDR(PIXEL_PORT)),
+      [bit]   "I" (PIXEL_BIT),
+      [onCycles]  "I" (NS_TO_CYCLES(T1H) - 2),    // 1-bit width less overhead  for the actual bit setting, note that this delay could be longer and everything would still work
+      [offCycles]   "I" (NS_TO_CYCLES(T1L) - 2)     // Minimum interbit delay. Note that we probably don't need this at all since the loop overhead will be enough, but here for correctness
+    );
+  } else {
+    asm volatile (
+      "sbi %[port], %[bit] \n\t"        // Set the output bit
+      ".rept %[onCycles] \n\t"        // Now timing actually matters. The 0-bit must be long enough to be detected but not too long or it will be a 1-bit
+      "nop \n\t"                                              // Execute NOPs to delay exactly the specified number of cycles
+      ".endr \n\t"
+      "cbi %[port], %[bit] \n\t"                              // Clear the output bit
+      ".rept %[offCycles] \n\t"                               // Execute NOPs to delay exactly the specified number of cycles
+      "nop \n\t"
+      ".endr \n\t"
+      ::
+      [port]    "I" (_SFR_IO_ADDR(PIXEL_PORT)),
+      [bit]   "I" (PIXEL_BIT),
+      [onCycles]  "I" (NS_TO_CYCLES(T0H) - 2),
+      [offCycles] "I" (NS_TO_CYCLES(T0L) - 2)
 
-// Define the array of leds
+    );
+  }
+}
+
+
+
+inline void sendByte( unsigned char byte ) {
+
+  for ( unsigned char bit = 0 ; bit < 8 ; bit++ ) {
+
+    sendBit( bitRead( byte , 7 ) );                // Neopixel wants bit in highest-to-lowest order
+    // so send highest bit (bit #7 in an 8-bit byte since they start at 0)
+    byte <<= 1;                                    // and then shift left so bit 6 moves into 7, 5 moves into 6, etc
+
+  }
+}
+
+// Set the specified pin up as digital out
+
+void ledsetup() {
+
+  bitSet( PIXEL_DDR , PIXEL_BIT );
+
+}
+
+
+void show() {
+  _delay_us( (RES / 1000UL) + 1);       // Round up since the delay must be _at_least_ this long (too short might not work, too long not a problem)
+}
+
 
 void setup() {
-  // Uncomment/edit one of the following lines for your leds arrangement.
-  // FastLED.addLeds<TM1803, DATA_PIN, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<TM1804, DATA_PIN, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<TM1809, DATA_PIN, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<WS2811, DATA_PIN, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<WS2812, DATA_PIN, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<WS2812B, DATA_PIN, RGB>(leds, NUM_LEDS);
-  FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
-  // FastLED.addLeds<APA104, DATA_PIN, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<UCS1903, DATA_PIN, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<UCS1903B, DATA_PIN, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<GW6205, DATA_PIN, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<GW6205_400, DATA_PIN, RGB>(leds, NUM_LEDS);
-
-  // FastLED.addLeds<WS2801, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<SM16716, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<LPD8806, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<P9813, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<APA102, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<DOTSTAR, RGB>(leds, NUM_LEDS);
-
-  // FastLED.addLeds<WS2801, DATA_PIN, CLOCK_PIN, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<SM16716, DATA_PIN, CLOCK_PIN, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<LPD8806, DATA_PIN, CLOCK_PIN, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<P9813, DATA_PIN, CLOCK_PIN, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<APA102, DATA_PIN, CLOCK_PIN, RGB>(leds, NUM_LEDS);
-  // FastLED.addLeds<DOTSTAR, DATA_PIN, CLOCK_PIN, RGB>(leds, NUM_LEDS);
-
-  Serial.begin(2000000);
+  Serial.begin(500000);
+  ledsetup();
 }
 
 void loop() {
+  int k = 0;
   if (Serial.available()) {
     while (Serial.available()) {
-      byte r = Serial.read();
-      if (r == 0xFF) {
-        k = 0;
-        update();
-
-      }
-      else {
-        receive[k++] = r;
-      }
+      cli();
+      sendByte(Serial.read());
+      sei();
     }
   }
-
-}
-
-void update() {
-  for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i].r = byte(receive[i * 3]);
-    leds[i].g = byte(receive[i * 3 + 1]);
-    leds[i].b = byte(receive[i * 3 + 2]);
-  }
-  FastLED.show();
 }
 
 

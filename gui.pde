@@ -12,7 +12,7 @@ void createGUI() {
     .setFont(createFont("AvenirNext-Bold",20))
     ;
     
-  cp5.addTextlabel("label")
+  cp5.addTextlabel("label2")
     .setText("Developed at Jason Bruges Studio")
     .setPosition(20,540)
     .setColorValue(#F0F0F0)
@@ -24,29 +24,25 @@ void createGUI() {
     .setBackgroundHeight(140)
     ;
     
-  cp5.addSlider("rows")
-    .setCaptionLabel("rows (0-100)")
+  cp5.addNumberbox("rows")
+    .setCaptionLabel("rows (0-1000)")
     .setPosition(10, 80)
-    .setSize(150, 10)
+    .setSize(70, 20)
     .moveTo(g1)
-    .setRange(0,100)
-    .setNumberOfTickMarks(100)
+    .setRange(1,1000)
     .setValue(8)
-    .showTickMarks(false);
+    .setDirection(1)
     ;
-    cp5.getController("rows").getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setPaddingX(0);
+    //cp5.getController("rows").getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setPaddingX(0);
   
-  cp5.addSlider("columns")
-  .setCaptionLabel("columns (0-10)")
-    .setPosition(10, 110)
-    .setSize(150, 10)
+  cp5.addNumberbox("columns")
+    .setCaptionLabel("columns (0-1000)")
+    .setPosition(90, 80)
+    .setSize(70, 20)
     .moveTo(g1)
-    .setRange(0,10)
-    .setNumberOfTickMarks(10)
+    .setRange(1,1000)
     .setValue(1)
-    .showTickMarks(false);
     ;
-    cp5.getController("columns").getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setPaddingX(0);
   
   cp5.addScrollableList("patternType")
     .setPosition(10, 35)
